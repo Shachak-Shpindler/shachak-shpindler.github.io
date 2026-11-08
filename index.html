@@ -669,12 +669,15 @@ mark { background: linear-gradient(transparent 58%, var(--mark) 58%); color: inh
 .xfade .xf-b { opacity: 0; animation: xf 9s ease-in-out infinite; }
 @keyframes xf { 0%, 38% { opacity: 0; } 50%, 88% { opacity: 1; } 100% { opacity: 0; } }
 .book-stage { position: relative; display: grid; justify-items: center; inline-size: 100%; }
-.book-arrow { position: absolute; inset-block-start: 50%; transform: translateY(-50%); inline-size: 52px; block-size: 52px; border-radius: 50%; border: 0; background: rgba(255,255,255,.14); color: #ffffff; display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(6px); transition: background-color .2s ease; }
+.book-arrow { position: absolute; inset-block-start: 50%; transform: translateY(-50%); inline-size: 52px; block-size: 52px; border-radius: 50%; border: 0; background: var(--btn-bg); color: var(--btn-fg); display: grid; place-items: center; cursor: pointer; box-shadow: 0 6px 16px -6px rgba(0,0,0,.6); transition: filter .2s ease, inset-inline-start .75s cubic-bezier(.3,.1,.2,1), inset-inline-end .75s cubic-bezier(.3,.1,.2,1); }
 .book-arrow svg { inline-size: 24px; block-size: 24px; }
-.book-arrow:hover { background: rgba(255,255,255,.28); }
+.book-arrow:hover:not(:disabled) { filter: brightness(1.08); }
 .book-arrow:disabled { opacity: .3; cursor: default; }
 .book-arrow--prev { inset-inline-end: calc(50% + min(50%, 380px) + 12px); }
 .book-arrow--next { inset-inline-start: calc(50% + min(50%, 380px) + 12px); }
+/* ספר סגור: החצים צמודים לכריכה, ולא לרוחב של ספר פתוח */
+.book-stage.is-shut .book-arrow--prev { inset-inline-end: calc(50% + min(25%, 190px) + 16px); }
+.book-stage.is-shut .book-arrow--next { inset-inline-start: calc(50% + min(25%, 190px) + 16px); }
 .site-foot .wrap { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 28px; }
 .foot-link { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: var(--fg); padding: 10px 16px; border-radius: var(--r-m); border: 1px solid var(--rule); background: var(--card); transition: transform .2s ease; }
 .foot-link:hover { transform: translateY(-2px); }
@@ -877,7 +880,19 @@ html.en .qs { padding: 0 0 0 1rem; }
 .spread.shut-back::before { left: 50%; right: 0; }
 .spread::after { transition: opacity .4s ease; }
 .spread.shut-front::after, .spread.shut-back::after { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { .spread, .spread::before, .spread::after { transition: none; } }
+/* ספר סגור נראה כמו ספר: שוליים של דפים מציצים מאחורי הכריכה, בצד הפתוח ובתחתית */
+.spread .pg { transition: box-shadow .3s ease; }
+.spread.shut-front .pg-l { box-shadow: -3px 3px 0 -1px var(--rayman-soft), -3px 3px 0 0 rgba(0,0,0,.28), -6px 6px 0 -1px var(--rayman-soft), -6px 6px 0 0 rgba(0,0,0,.28), -9px 9px 0 -1px var(--rayman-soft), -9px 9px 0 0 rgba(0,0,0,.3); }
+.spread.shut-back .pg-r { box-shadow: 3px 3px 0 -1px var(--rayman-soft), 3px 3px 0 0 rgba(0,0,0,.28), 6px 6px 0 -1px var(--rayman-soft), 6px 6px 0 0 rgba(0,0,0,.28), 9px 9px 0 -1px var(--rayman-soft), 9px 9px 0 0 rgba(0,0,0,.3); }
+.book.single .spread .pg-r { box-shadow: -3px 3px 0 -1px var(--rayman-soft), -3px 3px 0 0 rgba(0,0,0,.28), -6px 6px 0 -1px var(--rayman-soft), -6px 6px 0 0 rgba(0,0,0,.28); }
+/* במסך צר הדף מתהפך על כל הרוחב, סביב השדרה שמימין */
+.book.single .leaf { inline-size: 100%; left: 0; right: auto; transform-origin: right center; }
+.leaf--in { transform: rotateY(180deg); }
+.leaf--in.go { transform: rotateY(0deg); }
+/* רמז דפדוף: הכריכה מתרוממת מעט וחוזרת, פעם אחת כשמגיעים לחוברת */
+.leaf.peek { transition-duration: .55s; transform: rotateY(32deg); }
+.leaf.peek-back { transition-duration: .55s; }
+@media (prefers-reduced-motion: reduce) { .spread, .spread::before, .spread::after, .spread .pg, .book-arrow { transition: none; } }
 
 </style>
 </head>
@@ -1511,7 +1526,8 @@ html.en .qs { padding: 0 0 0 1rem; }
     function put(el, n) { if (n >= 1 && n <= N) { el.src = P[n - 1].getAttribute('src'); el.alt = P[n - 1].getAttribute('alt'); el.hidden = false; } else { el.removeAttribute('src'); el.alt = ''; el.hidden = true; } }
     function pair(r) { return r === 1 ? [0, 1] : [r, r + 1 <= N ? r + 1 : 0]; }
     // ספר סגור (כריכה קדמית או אחורית לבד): הדף היחיד ממורכז, והספר מחליק למרכז תוך כדי הדפדוף
-    function shut(r) { spread.classList.toggle('shut-front', !single && r === 1); spread.classList.toggle('shut-back', !single && r === N && N % 2 === 0); }
+    var stage = view.querySelector('.book-stage');
+    function shut(r) { var f = !single && r === 1, b = !single && r === N && N % 2 === 0; spread.classList.toggle('shut-front', f); spread.classList.toggle('shut-back', b); stage.classList.toggle('is-shut', f || b); }
     function render() {
       book.classList.toggle('single', single);
       // התווית לפי מספרי העמודים המודפסים: סריקה 1 = כריכה, 2–5 = עמודי פתיחה, 6 ואילך = עמוד 1 ואילך, האחרונה = כריכה אחורית
@@ -1524,7 +1540,20 @@ html.en .qs { padding: 0 0 0 1rem; }
     }
     function go(dir) {
       if (busy) return;
-      if (single) { var t = cur + dir; if (t < 1 || t > N) return; cur = t; render(); return; }
+      if (single) {
+        var t = cur + dir; if (t < 1 || t > N) return;
+        if (CALM) { cur = t; render(); return; }
+        // קדימה: הדף הנוכחי מתהפך מעל השדרה ומתחתיו מחכה הבא. אחורה: הדף הקודם חוזר מהשדרה אל הבמה
+        busy = true; var one = document.createElement('div');
+        one.className = 'leaf ' + (dir > 0 ? 'leaf--fwd' : 'leaf--in');
+        one.innerHTML = '<img class="lf-f" alt=""><img class="lf-b" alt="">';
+        put(one.querySelector('.lf-f'), dir > 0 ? cur : t); put(one.querySelector('.lf-b'), 0);
+        if (dir > 0) put(R, t);
+        spread.appendChild(one);
+        requestAnimationFrame(function () { requestAnimationFrame(function () { one.classList.add('go'); }); });
+        setTimeout(function () { cur = t; render(); one.remove(); busy = false; }, 780);
+        return;
+      }
       var to = dir > 0 ? (cur === 1 ? 2 : cur + 2) : (cur <= 2 ? 1 : cur - 2);
       if (to < 1 || to > N || to === cur) return;
       if (CALM) { cur = to; render(); return; }
@@ -1544,6 +1573,22 @@ html.en .qs { padding: 0 0 0 1rem; }
     function onMq() { var s = mq.matches; if (s === single) return; single = s; cur = single ? Math.max(1, cur) : rightOf(cur); render(); }
     if (mq.addEventListener) mq.addEventListener('change', onMq); else mq.addListener(onMq);
     render(); document.addEventListener('langchange', render);
+    // רמז דפדוף: כשהחוברת נכנסת למסך והיא עדיין סגורה, הכריכה מתרוממת מעט וחוזרת. פעם אחת, ולא למי שביקש הפחתת תנועה
+    function peek() {
+      if (busy || cur !== 1) return; busy = true;
+      var lf = document.createElement('div'); lf.className = 'leaf leaf--fwd';
+      lf.innerHTML = '<img class="lf-f" alt=""><img class="lf-b" alt="">';
+      put(lf.querySelector('.lf-f'), 1); put(lf.querySelector('.lf-b'), 0);
+      var under = single ? R : L; put(under, single ? 2 : 3);
+      spread.appendChild(lf);
+      requestAnimationFrame(function () { requestAnimationFrame(function () { lf.classList.add('peek'); }); });
+      setTimeout(function () { lf.classList.add('peek-back'); lf.classList.remove('peek'); }, 800);
+      setTimeout(function () { lf.remove(); render(); busy = false; }, 1400);
+    }
+    if (!CALM && 'IntersectionObserver' in window) {
+      var pio = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { pio.disconnect(); setTimeout(peek, 500); } }); }, { threshold: 0.6 });
+      pio.observe(spread);
+    }
   })();
   // אריזת הדיסק: שלושה כפתורים לשלושת הצדדים, גרירה לסיבוב חופשי, וסיבוב מלא אחד כשמגיעים אליה (לא למי שביקש הפחתת תנועה)
   (function () {
